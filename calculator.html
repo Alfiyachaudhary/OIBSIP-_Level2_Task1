@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Simple Calculator</title>
+  <style>
+    :root{
+      --bg:#f3f6fb;
+      --panel:#ffffff;
+      --accent:#4A90E2;
+      --btn:#e9eef8;
+      --danger:#ff6b6b;
+      --text:#1f2937;
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);font-family:Inter,system-ui,Arial,sans-serif;color:var(--text);background-color: #1f2937;
+    }
+    .calculator{
+      width:360px;max-width:96vw;background:var(--panel);border-radius:16px;padding:18px;box-shadow:0 8px 30px rgba(20,30,60,0.12);
+    }
+    .screen{
+      height:72px;border-radius:20px;background:#f7f9fc;padding:12px 14px;display:flex;flex-direction:column;justify-content:center;align-items:flex-end;overflow:hidden;
+    }
+    .screen .expr{font-size:10px;color:#64748b;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+    .screen .result{font-size:28px;font-weight:600;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;width:100%}
+    .keys{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:14px}
+    button{height:56px;border:0;border-radius:10px;font-size:18px;cursor:pointer}
+    .btn-operator{background:linear-gradient(180deg,#eef6ff,#e6f0ff)}
+    .btn-number{background:var(--btn)}
+    .btn-ac{background:var(--danger);color:white}
+    .btn-equal{grid-column:span 2;background:var(--accent);color:white}
+    .btn-wide{grid-column:span 2}
+    .btn-dark{background:#111827;color:white}
+    @media (max-width:420px){.calculator{padding:12px}.screen{height:64px}.keys button{height:50px}}
+  </style>
+</head>
+<body>
+  <div class="calculator" role="application" aria-label="Calculator">
+    <div class="screen" id="screen">
+      <div class="expr" id="expression">0</div>
+      <div class="result" id="result">0</div>
+    </div>
+
+    <div class="keys">
+      <button class="btn-ac" data-action="clear">AC</button>
+      <button class="btn-operator" data-action="delete">DEL</button>
+      <button class="btn-operator" data-value="%">%</button>
+      <button class="btn-operator" data-value="/">÷</button>
+
+      <button class="btn-number" data-value="7">7</button>
+      <button class="btn-number" data-value="8">8</button>
+      <button class="btn-number" data-value="9">9</button>
+      <button class="btn-operator" data-value="*">×</button>
+
+      <button class="btn-number" data-value="4">4</button>
+      <button class="btn-number" data-value="5">5</button>
+      <button class="btn-number" data-value="6">6</button>
+      <button class="btn-operator" data-value="-">−</button>
+
+      <button class="btn-number" data-value="1">1</button>
+      <button class="btn-number" data-value="2">2</button>
+      <button class="btn-number" data-value="3">3</button>
+      <button class="btn-operator" data-value="+">+</button>
+
+      <button class="btn-number" data-value="0">0</button>
+      <button class="btn-number" data-value=".">.</button>
+      <button class="btn-equal btn-dark btn-ws btn-wide" data-action="equals">=</button>
+    </div>
+  </div>
+
+  <script>
+    // Simple calculator logic
+    const exprEl = document.getElementById('expression');
+    const resultEl = document.getElementById('result');
+    let expression = ''; // will store user input as a string
+
+    // helper to update screen
+    function updateScreen(){
+      exprEl.textContent = expression || '0';
+      try{
+        const sanitized = sanitizeExpression(expression);
+        if(sanitized.trim() === ''){ resultEl.textContent = '0'; return }
+        const value = evaluateExpression(sanitized);
+        resultEl.textContent = String(value);
+      }catch(e){ resultEl.textContent = '' }
+    }
+
+    // Replace percent and human symbols to JS operators
+    function sanitizeExpression(expr){
+      return expr.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-').replace(/%/g,'/100');
+    }
+
+    // Evaluate expression safely (basic)
+    function evaluateExpression(sanitized){
+      // Only allow digits, operators, dot, parentheses
+      if(!/^[0-9+\-*/().\s%]*$/.test(sanitized)) throw new Error('Invalid');
+      // Use Function instead of eval to avoid some risks
+      // Note: still executes JS; ok for local calculator
+      return Function('return (' + sanitized + ')')();
+    }
+
+    // Button clicks
+    document.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const val = btn.getAttribute('data-value');
+        const action = btn.getAttribute('data-action');
+        if(action === 'clear'){
+          expression = '';
+          updateScreen();
+          return;
+        }
+        if(action === 'delete'){
+          expression = expression.slice(0,-1);
+          updateScreen();
+          return;
+        }
+        if(action === 'equals'){
+          try{
+            const sanitized = sanitizeExpression(expression);
+            const res = evaluateExpression(sanitized);
+            expression = String(res);
+            updateScreen();
+          }catch(e){ resultEl.textContent = 'Error' }
+          return;
+        }
+        // otherwise append value
+        if(val){
+          // prevent multiple dots in a number segment
+          if(val === '.'){
+            const parts = expression.split(/[+\-*/()]/);
+            const last = parts[parts.length-1];
+            if(last.includes('.')) return; // ignore extra dot
+          }
+          expression += val;
+          updateScreen();
+        }
+      })
+    })
+
+    // Keyboard support
+    window.addEventListener('keydown', (e) => {
+      const key = e.key;
+      if(isFinite(key) || key === '.'){
+        document.querySelector(`button[data-value=\"${key}\"]`)?.click();
+        return;
+      }
+      if(key === 'Enter') { e.preventDefault(); document.querySelector('button[data-action="equals"]').click(); return }
+      if(key === 'Backspace') { document.querySelector('button[data-action="delete"]').click(); return }
+      if(key === 'Escape') { document.querySelector('button[data-action="clear"]').click(); return }
+      const opsMap = {'/':'/','*':'*','-':'-','+':'+'};
+      if(opsMap[key]){ document.querySelector(`button[data-value=\"${opsMap[key]}\"]`)?.click() }
+    })
+
+    // initialize
+    updateScreen();
+  </script>
+</body>
+</html>
